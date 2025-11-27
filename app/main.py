@@ -1,25 +1,32 @@
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
-from .core.settings.db import Database
-from .core.models.base import BaseModel
-from .core.models import BaseModel, User, Project, ApiToken, Provider, LookupResult, IpQuery
+from app.core.settings.db import Base, engine
 
-DATABASE_URL = "sqlite+aiosqlite:///./test.db"
-db = Database(url=DATABASE_URL)
+# Імпортуємо моделі, щоб SQLAlchemy бачив таблиці
+from app.core.models import user, project, provider, api_token, ip_query, lookup_result
 
-@asynccontextmanager
-async def lifespan(_fastapi_app: FastAPI):
-    await db.connect()
-    async with db.engine.begin() as connection:  # type: ignore[union-attr]
-        await connection.run_sync(BaseModel.metadata.create_all)
-    yield
-    await db.disconnect()
+# Роутери
+from app.core.routers.user_router import router as user_router
+from app.core.routers.project_router import router as project_router
+from app.core.routers.provider_router import router as provider_router
+from app.core.routers.api_token_router import router as api_token_router
+from app.core.routers.ip_query_router import router as ip_query_router
+from app.core.routers.lookup_result_router import router as lookup_result_router
+
+# Створення таблиць
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
+
+# Підключення роутерів
+app.include_router(user_router)
+app.include_router(project_router)
+app.include_router(provider_router)
+app.include_router(api_token_router)
+app.include_router(ip_query_router)
+app.include_router(lookup_result_router)
 
 
-app = FastAPI(lifespan=lifespan)
-
-@app.get(path="/health", tags=["System"])
-async def health():
-    ok = await db.ping()
-    return {"status": "ok" if ok else "error"}
+@app.get("/health")
+def health():
+    return {"status": "ok"}
